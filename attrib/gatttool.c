@@ -122,6 +122,29 @@ static gboolean listen_start(gpointer user_data)
 	return FALSE;
 }
 
+static void exchange_mtu_cb(guint8 status, const guint8 *pdu, guint16 plen,
+							gpointer user_data)
+{
+	GAttrib *attrib = user_data;
+	uint16_t mtu;
+
+	if (status != 0) {
+		printf("Exchange MTU Request failed: %s\n",
+						att_ecode2str(status));
+		return;
+	}
+
+	if (!dec_mtu_resp(pdu, plen, &mtu)) {
+		printf("Protocol error\n");
+		return;
+	}
+
+	mtu = MIN(mtu, opt_mtu);
+	/* Set new value for MTU in client */
+	if (!g_attrib_set_mtu(attrib, mtu))
+		printf("Error exchanging MTU\n");
+}
+
 static void connect_cb(GIOChannel *io, GError *err, gpointer user_data)
 {
 	GAttrib *attrib;
@@ -152,6 +175,8 @@ static void connect_cb(GIOChannel *io, GError *err, gpointer user_data)
 
 	if (opt_listen)
 		g_idle_add(listen_start, attrib);
+
+	gatt_exchange_mtu(attrib, opt_mtu, exchange_mtu_cb, attrib);
 
 	operation(attrib);
 }
