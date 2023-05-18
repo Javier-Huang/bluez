@@ -120,3 +120,20 @@ size_t gatt_attr_data_from_string(const char *str, uint8_t **data)
 
 	return size;
 }
+
+size_t gatt_attr_data_from_ascii_string(const char *str, uint8_t **data)
+{
+	size_t size;
+
+	size = strlen(str);
+	*data = g_try_malloc0(size);
+
+	if (*data == NULL)
+		return 0;
+
+	for (int i = 0; i < size; i++) {
+		(*data)[i] = (uint8_t)str[i];
+	}
+
+	return size;
+}

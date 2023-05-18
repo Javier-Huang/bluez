@@ -64,6 +64,7 @@ static gboolean opt_char_desc = FALSE;
 static gboolean opt_char_write = FALSE;
 static gboolean opt_char_write_req = FALSE;
 static gboolean opt_interactive = FALSE;
+static gboolean opt_ascii = FALSE;
 static GMainLoop *event_loop;
 static gboolean got_error = FALSE;
 static GSourceFunc operation;
@@ -285,10 +286,17 @@ static void char_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
 		g_printerr("Protocol error\n");
 		goto done;
 	}
-	g_print("Characteristic value/descriptor: ");
-	for (i = 0; i < vlen; i++)
-		g_print("%02x ", value[i]);
-	g_print("\n");
+
+	if (opt_ascii) {
+		for (i = 0; i < vlen; i++)
+			g_print("%c", value[i]);
+		g_print("\n");
+	}else {
+		g_print("Characteristic value/descriptor: ");
+		for (i = 0; i < vlen; i++)
+			g_print("%02x ", value[i]);
+		g_print("\n");
+	}
 
 done:
 	if (!opt_listen)
@@ -375,7 +383,11 @@ static gboolean characteristics_write(gpointer user_data)
 		goto error;
 	}
 
-	len = gatt_attr_data_from_string(opt_value, &value);
+	if (opt_ascii) {
+		len = gatt_attr_data_from_ascii_string(opt_value, &value);
+	}else {
+		len = gatt_attr_data_from_string(opt_value, &value);
+	}
 	if (len == 0) {
 		g_printerr("Invalid value\n");
 		goto error;
@@ -397,11 +409,13 @@ static void char_write_req_cb(guint8 status, const guint8 *pdu, guint16 plen,
 	if (status != 0) {
 		g_printerr("Characteristic Write Request failed: "
 						"%s\n", att_ecode2str(status));
+		got_error = TRUE;
 		goto done;
 	}
 
 	if (!dec_write_resp(pdu, plen) && !dec_exec_write_resp(pdu, plen)) {
 		g_printerr("Protocol error\n");
+		got_error = TRUE;
 		goto done;
 	}
 
@@ -428,7 +442,11 @@ static gboolean characteristics_write_req(gpointer user_data)
 		goto error;
 	}
 
-	len = gatt_attr_data_from_string(opt_value, &value);
+	if (opt_ascii) {
+		len = gatt_attr_data_from_ascii_string(opt_value, &value);
+	}else {
+		len = gatt_attr_data_from_string(opt_value, &value);
+	}
 	if (len == 0) {
 		g_printerr("Invalid value\n");
 		goto error;
@@ -452,6 +470,7 @@ static void char_desc_cb(uint8_t status, GSList *descriptors, void *user_data)
 	if (status) {
 		g_printerr("Discover descriptors failed: %s\n",
 							att_ecode2str(status));
+		got_error = TRUE;
 		return;
 	}
 
@@ -529,6 +548,8 @@ static GOptionEntry gatt_options[] = {
 		"Listen for notifications and indications", NULL },
 	{ "interactive", 'I', G_OPTION_FLAG_IN_MAIN, G_OPTION_ARG_NONE,
 		&opt_interactive, "Use interactive mode", NULL },
+	{ "ascii", 0, 0, G_OPTION_ARG_NONE, &opt_ascii,
+		"Characteristics Read/Write ASCII Format (For Friendly Read)", NULL },
 	{ NULL },
 };
 
